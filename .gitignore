@@ -1,4 +1,6 @@
 dataset/
 meetting/
-models/
+/models/
 .idea/
+test.py
+/data/

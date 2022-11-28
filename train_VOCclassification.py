@@ -108,7 +108,7 @@ for epoch in range(epoches):
 
     # tensorboard epoch acc
     writer.add_scalar('Test/Acc', 100 * correct / total, epoch)
-
+    
 
     # save checkpoint
     torch.save({
@@ -119,5 +119,8 @@ for epoch in range(epoches):
         "acc": 100 * correct / total
     }, "./models/resnet50_voc_epoch_{}.pth".format(epoch + 1))
 
+
 writer.close()
+
+
 
