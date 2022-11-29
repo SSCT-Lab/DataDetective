@@ -35,6 +35,8 @@ with torch.no_grad():
 
         image = list(img.to(device) for img in image)
 
+
+
         outputs = model(image)
         # instances results
         for i, prediction in enumerate(outputs):
