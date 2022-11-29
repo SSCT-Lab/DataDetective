@@ -56,11 +56,11 @@ with torch.no_grad():
                 results.append(content_dic)
 
     json_str = json.dumps(results, indent=4)
-    with open('./data/ssd_VOCval_inferences.json', 'w') as json_file:
+    with open('data/detection_results/ssd_VOCval_inferences.json', 'w') as json_file:
         json_file.write(json_str)
 
 # load results
-with open('./data/ssd_VOCval_inferences.json', 'r') as f:
+with open('data/detection_results/ssd_VOCval_inferences.json', 'r') as f:
     results = json.load(f)
 
 # check max(full_score) == score

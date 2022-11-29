@@ -224,7 +224,7 @@ from UTILS.parameters import parameters
 
 
 class inference_VOCinf_classificationDataSet(data.Dataset):
-    def __init__(self, voc_root, inferences_root="../data/ssd_VOCval_infreneces.json", transforms=None):
+    def __init__(self, voc_root, inferences_root="../data/detection_results/ssd_VOCval_inferences.json", transforms=None):
         self.root = voc_root
         self.img_root = os.path.join(self.root, "JPEGImages")
         full_inference_results = json.load(open(inferences_root, "r"))

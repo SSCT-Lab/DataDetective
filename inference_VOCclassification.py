@@ -16,12 +16,14 @@ def inference_VOCclassification(dataloader, inference_type):
     model.fc = torch.nn.Linear(2048, 21)
     model.load_state_dict(modelState["model"])
     model.eval()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model.to(device)
     results = []
     with torch.no_grad():
         for i, data in enumerate(dataloader):
             images, targets = data
 
-            outputs = model(images)
+            outputs = model(images.to(device))
             # softmax outputs
             outputs = torch.nn.functional.softmax(outputs, dim=1)
             _, predicted = torch.max(outputs.data, 1)
@@ -47,8 +49,6 @@ def inference_VOCclassification(dataloader, inference_type):
                         "bbox": targets["boxes"][j].numpy().tolist(),
                     }
                     results.append(content_dic)
-            print(results)
-            break
     return results
 
 
@@ -67,20 +67,20 @@ if __name__ == '__main__':
     vocgtdataloader = DataLoader(vocgtdataset, batch_size=1, shuffle=False, num_workers=0)
 
     vocinfdataset = inference_VOCinf_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
-                                                           inferences_root="./data/ssd_VOCval_inferences.json",
+                                                           inferences_root="./data/detection_results/ssd_VOCval_inferences.json",
                                                            transforms=data_transform)
     vocinfdataloader = DataLoader(vocinfdataset, batch_size=1, shuffle=False, num_workers=0)
 
     if inference_type == 'gt':
         results = inference_VOCclassification(vocgtdataloader, inference_type)
         json_str = json.dumps(results, indent=4)
-        with open('./data/classification_VOCgt_inferences.json', 'w') as json_file:
+        with open('./data/classification_results/classification_VOCgt_inferences.json', 'w') as json_file:
             json_file.write(json_str)
 
     elif inference_type == 'inf':
         results = inference_VOCclassification(vocinfdataloader, inference_type)
         json_str = json.dumps(results, indent=4)
-        with open('./data/classification_VOCinf_inferences.json', 'w') as json_file:
+        with open('./data/classification_results/classification_VOCinf_inferences.json', 'w') as json_file:
             json_file.write(json_str)
 
     else:
