@@ -224,7 +224,8 @@ from UTILS.parameters import parameters
 
 
 class inference_VOCinf_classificationDataSet(data.Dataset):
-    def __init__(self, voc_root, inferences_root="../data/detection_results/ssd_VOCval_inferences.json", transforms=None):
+    def __init__(self, voc_root, inferences_root="../data/detection_results/ssd_VOCval_inferences.json",
+                 transforms=None):
         self.root = voc_root
         self.img_root = os.path.join(self.root, "JPEGImages")
         full_inference_results = json.load(open(inferences_root, "r"))
@@ -238,7 +239,6 @@ class inference_VOCinf_classificationDataSet(data.Dataset):
         print(f"INFO: {len(self.inference_results)} instances loaded.")
 
         self.transforms = transforms
-
 
     def __getitem__(self, idx):
         instance = self.inference_results[idx]
@@ -279,7 +279,6 @@ class inference_VOCinf_classificationDataSet(data.Dataset):
 
         return img, target
 
-
     def __len__(self):
         return len(self.inference_results)
 
@@ -296,6 +295,80 @@ class inference_VOCinf_classificationDataSet(data.Dataset):
                     result[child.tag] = []
                 result[child.tag].append(child_result[child.tag])
         return {xml.tag: result}
+
+    # collate_fn needs for batch
+    @staticmethod
+    def collate_fn(batch):
+        return tuple(zip(*batch))
+
+
+class inference_VOCgtfault_classificationDataSet(data.Dataset):
+    def __init__(self, voc_root, fault_type='class fault', transforms=None):
+        self.root = voc_root
+        self.img_root = os.path.join(self.root, "JPEGImages")
+        # falut_type with out space
+        fault_gt = json.load(open('./data/fault_annotations/VOCval_' + fault_type.replace(" ", "") + '.json', "r"))
+        self.fault_gt_instances = []
+        # if fault_type == 'missing fault' then remove it
+        print(f"INFO: fault type is {fault_type}")
+        print(f"INFO: {len(fault_gt)} instances pre-loaded.")
+
+        params = parameters()
+        fault_type_dict = params.fault_type
+        if fault_type == 'missing fault' or fault_type == 'mixed fault':
+            for instance in fault_gt:
+                if instance["fault_type"] != fault_type_dict['missing fault']:
+                    self.fault_gt_instances.append(instance)
+        else:
+            for instance in fault_gt:
+                self.fault_gt_instances.append(instance)
+
+        print(f"INFO: {len(self.fault_gt_instances)} instances post-loaded.")
+
+        self.transforms = transforms
+
+    def __getitem__(self, idx):
+        instance = self.fault_gt_instances[idx]
+        img_path = os.path.join(self.img_root, instance["image_name"])
+        img = Image.open(img_path).convert("RGB")
+        boxes = instance["boxes"]
+
+        target = {}
+        target["image_name"] = instance["image_name"]
+        target["category_id"] = torch.tensor(instance["labels"])
+        target["boxes"] = torch.tensor(boxes)
+        target["fault_type"] = instance["fault_type"]
+
+        # draw img with bounding box
+        # plt.gca().add_patch(
+        #     plt.Rectangle((boxes[0], boxes[1]), boxes[2] - boxes[0], boxes[3] - boxes[1], fill=False, edgecolor='red',
+        #                   linewidth=3))  # xmin, ymin, w, h
+        # plt original image
+        # plt.imshow(img)
+        # plt.show()
+
+        # Crop out the boxes part of the image
+        img = img.crop(boxes)
+
+        # plt cropped image
+        # plt.imshow(img)
+        # plt.show()
+
+        # Resize the image to 224x224
+        img = img.resize((224, 224))
+
+        # plt resized image
+        # plt.imshow(img)
+        # plt.show()
+
+        # convert everything into a torch.Tensor
+        if self.transforms is not None:
+            img = self.transforms(img)
+
+        return img, target
+
+    def __len__(self):
+        return len(self.fault_gt_instances)
 
     # collate_fn needs for batch
     @staticmethod
@@ -519,14 +592,20 @@ class inferenceVOCDetectionDataSet(data.Dataset):
 # test
 if __name__ == "__main__":
     # test inference_VOCinf_classificationDataSet
-    dataset = inference_VOCinf_classificationDataSet(voc_root="../dataset/VOCdevkit/VOC2012", transforms=None,
-                                                     inferences_root="../data/ssd_VOCval_inferences.json")
+    dataset = inference_VOCgtfault_classificationDataSet(voc_root="../dataset/VOCdevkit/VOC2012",
+                                                         fault_type="missing fault")
+
     dataloader = data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0, collate_fn=dataset.collate_fn)
     # test dataloader for 10 images
+    params = parameters()
+    fault_type_dict = params.fault_type
     for i, (img, target) in enumerate(dataloader):
+        print(target)
         if i == 10:
             break
-        print(target)
+
+        # if target[0]["fault type"] == fault_type_dict["class fault"]:
+        #     print(target)
 
     #     # test VOCDetectionDataSet
     # dataset = inferenceVOCDetectionDataSet(voc_root="../dataset/VOCdevkit/VOC2012/", txt_name="train.txt")

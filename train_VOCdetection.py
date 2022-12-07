@@ -28,6 +28,8 @@ val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_worker
 # ssd model
 
 model = ssd300_vgg16(weights=SSD300_VGG16_Weights.DEFAULT)
+
+
 model.head.classification_head = SSDClassificationHead([512, 1024, 512, 256, 256, 256],
                                                        model.anchor_generator.num_anchors_per_location(), 21)
 

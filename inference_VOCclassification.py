@@ -4,8 +4,11 @@ import torch
 import torchvision.models
 from torch.utils.data import DataLoader
 
-from UTILS.mydataset import inference_VOCGt_classificationDataSet, inference_VOCinf_classificationDataSet
+from UTILS.mydataset import inference_VOCGt_classificationDataSet, inference_VOCinf_classificationDataSet, \
+    inference_VOCgtfault_classificationDataSet
 from torchvision import transforms
+
+from UTILS.parameters import parameters
 
 
 def inference_VOCclassification(dataloader, inference_type):
@@ -49,11 +52,23 @@ def inference_VOCclassification(dataloader, inference_type):
                         "bbox": targets["boxes"][j].numpy().tolist(),
                     }
                     results.append(content_dic)
+
+                # inference_type == 'class fault' or 'location fault' or 'redundancy fault' or 'missing fault'
+                else:
+                    content_dic = {
+                        "image_name": targets["image_name"][j],
+                        "full_scores": outputs[j].cpu().numpy().tolist(),
+                        "detectiongt_category_id": int(targets["category_id"][j]),
+                        "bbox": targets["boxes"][j].numpy().tolist(),
+                        "fault_type": targets["fault_type"][j].item(),
+                    }
+                    results.append(content_dic)
+
     return results
 
-
+params = parameters()
 if __name__ == '__main__':
-    inference_type = 'inf'
+    inference_type = 'mixed fault'
 
     data_transform = transforms.Compose([
         transforms.ToTensor(),
@@ -61,26 +76,85 @@ if __name__ == '__main__':
                              std=[0.229, 0.224, 0.225])
     ])
 
-    vocgtdataset = inference_VOCGt_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
-                                                         transforms=data_transform,
-                                                         txt_name="val.txt")
-    vocgtdataloader = DataLoader(vocgtdataset, batch_size=1, shuffle=False, num_workers=0)
-
-    vocinfdataset = inference_VOCinf_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
-                                                           inferences_root="./data/detection_results/ssd_VOCval_inferences.json",
-                                                           transforms=data_transform)
-    vocinfdataloader = DataLoader(vocinfdataset, batch_size=1, shuffle=False, num_workers=0)
+    dataloader = None
 
     if inference_type == 'gt':
-        results = inference_VOCclassification(vocgtdataloader, inference_type)
+        dataset = inference_VOCGt_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
+                                                        transforms=data_transform,
+                                                        txt_name="val.txt")
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
+
+    elif inference_type == 'inf':
+        dataset = inference_VOCinf_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
+                                                         inferences_root="./data/detection_results/ssd_VOCval_inferences.json",
+                                                         transforms=data_transform)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
+
+    elif inference_type == 'class fault':
+        dataset = inference_VOCgtfault_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
+                                                             fault_type="class fault",
+                                                             transforms=data_transform)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
+
+    elif inference_type == 'location fault':
+        dataset = inference_VOCgtfault_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
+                                                             fault_type="location fault",
+                                                             transforms=data_transform)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
+
+    elif inference_type == 'redundancy fault':
+        dataset = inference_VOCgtfault_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
+                                                             fault_type="redundancy fault",
+                                                             transforms=data_transform)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
+
+    elif inference_type == 'missing fault':
+        dataset = inference_VOCgtfault_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
+                                                             fault_type="missing fault",
+                                                             transforms=data_transform)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
+    elif inference_type == 'mixed fault':
+        dataset = inference_VOCgtfault_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
+                                                             fault_type="mixed fault",
+                                                             transforms=data_transform)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
+
+    if inference_type == 'gt':
+        results = inference_VOCclassification(dataloader, inference_type)
         json_str = json.dumps(results, indent=4)
         with open('./data/classification_results/classification_VOCgt_inferences.json', 'w') as json_file:
             json_file.write(json_str)
 
     elif inference_type == 'inf':
-        results = inference_VOCclassification(vocinfdataloader, inference_type)
+        results = inference_VOCclassification(dataloader, inference_type)
         json_str = json.dumps(results, indent=4)
-        with open('./data/classification_results/classification_VOCinf_inferences.json', 'w') as json_file:
+        with open('./data/classification_results/classification_VOCinf'+str(params.m_t)+'_inferences.json', 'w') as json_file:
+            json_file.write(json_str)
+    elif inference_type == 'class fault':
+        results = inference_VOCclassification(dataloader, inference_type)
+        json_str = json.dumps(results, indent=4)
+        with open('./data/classification_results/classification_VOCgtclassfault_inferences.json', 'w') as json_file:
+            json_file.write(json_str)
+    elif inference_type == 'location fault':
+        results = inference_VOCclassification(dataloader, inference_type)
+        json_str = json.dumps(results, indent=4)
+        with open('./data/classification_results/classification_VOCgtlocationfault_inferences.json', 'w') as json_file:
+            json_file.write(json_str)
+    elif inference_type == 'redundancy fault':
+        results = inference_VOCclassification(dataloader, inference_type)
+        json_str = json.dumps(results, indent=4)
+        with open('./data/classification_results/classification_VOCgtredundancyfault_inferences.json', 'w') as json_file:
+            json_file.write(json_str)
+
+    elif inference_type == 'missing fault':
+        results = inference_VOCclassification(dataloader, inference_type)
+        json_str = json.dumps(results, indent=4)
+        with open('./data/classification_results/classification_VOCgtmissingfault_inferences.json', 'w') as json_file:
+            json_file.write(json_str)
+    elif inference_type == 'mixed fault':
+        results = inference_VOCclassification(dataloader, inference_type)
+        json_str = json.dumps(results, indent=4)
+        with open('./data/classification_results/classification_VOCgtmixedfault_inferences.json', 'w') as json_file:
             json_file.write(json_str)
 
     else:
