@@ -10,7 +10,7 @@ from UTILS.coco_utils import get_coco_api_from_dataset
 from UTILS import utils
 
 
-def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
+def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, modeltype):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
@@ -52,8 +52,14 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
 
-    # return metric logger , mean total loss, mean classification loss, mean box loss
-    return metric_logger, metric_logger.meters['loss'].global_avg, metric_logger.meters['classification'].global_avg, metric_logger.meters['bbox_regression'].global_avg
+    if modeltype == 'frcnn':
+        return metric_logger, metric_logger.meters['loss'].global_avg, metric_logger.meters[
+            'loss_classifier'].global_avg, \
+               metric_logger.meters['loss_box_reg'].global_avg, metric_logger.meters['loss_objectness'].global_avg
+    elif modeltype == 'ssd':
+        return metric_logger, metric_logger.meters['loss'].global_avg, metric_logger.meters[
+            'classification'].global_avg, \
+               metric_logger.meters['bbox_regression'].global_avg
 
 
 def _get_iou_types(model):
@@ -94,7 +100,6 @@ def evaluate(model, data_loader, device):
         model_time = time.time() - model_time
 
         res = {target["image_id"].item(): output for target, output in zip(targets, outputs)}
-
 
         evaluator_time = time.time()
         coco_evaluator.update(res)

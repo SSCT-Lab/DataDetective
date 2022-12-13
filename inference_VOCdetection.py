@@ -3,17 +3,26 @@ import json
 import torch
 from tqdm import tqdm
 
-from modelsCodes.models.detection import ssd300_vgg16
+from modelsCodes.models.detection import ssd300_vgg16,fasterrcnn_resnet50_fpn_v2
 from UTILS.mydataset import inferenceVOCDetectionDataSet
 from UTILS import presets
 from UTILS.engine import evaluate
 from UTILS.cal_voc_map import cal_voc_map
 
-model_path = 'models/ssd300_vgg16_voc_epoch_29.pth'
+modeltype = 'frcnn'
+model_path,model = None,None
+if modeltype == 'ssd':
+    model_path = 'models/ssd300_vgg16_voc_epoch_29.pth'
+elif modeltype == 'frcnn':
+    model_path = 'models/frcnn_resnet50_voc_epoch_25.pth'
 
 # load model
 modelState = torch.load(model_path, map_location="cpu")
-model = ssd300_vgg16(num_classes=21)
+if modeltype == 'ssd':
+    model = ssd300_vgg16(num_classes=21)
+elif modeltype == 'frcnn':
+    model = fasterrcnn_resnet50_fpn_v2(num_classes=21)
+
 model.load_state_dict(modelState["model"])
 
 val_dataset = inferenceVOCDetectionDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
@@ -35,8 +44,6 @@ with torch.no_grad():
 
         image = list(img.to(device) for img in image)
 
-
-
         outputs = model(image)
         # instances results
         for i, prediction in enumerate(outputs):
@@ -45,6 +52,7 @@ with torch.no_grad():
             scores = prediction['scores'].cpu()
             full_score = prediction['full_scores'].cpu().numpy().tolist()
             for j in range(prediction["labels"].shape[0]):
+                assert full_score[j][cat_ids[j]] == scores[j]
                 content_dic = {
                     "image_name": targets[i]["image_name"],
                     "image_id": int(targets[i]["image_id"].numpy()[0]),
@@ -56,16 +64,25 @@ with torch.no_grad():
                 results.append(content_dic)
 
     json_str = json.dumps(results, indent=4)
-    with open('data/detection_results/ssd_VOCval_inferences.json', 'w') as json_file:
-        json_file.write(json_str)
+
+    if modeltype == 'ssd':
+        with open('data/detection_results/ssd_VOCval_inferences.json', 'w') as json_file:
+            json_file.write(json_str)
+    elif modeltype == 'frcnn':
+        with open('data/detection_results/frcnn_VOCval_inferences.json', 'w') as json_file:
+            json_file.write(json_str)
 
 # load results
-with open('data/detection_results/ssd_VOCval_inferences.json', 'r') as f:
-    results = json.load(f)
+if modeltype == 'ssd':
+    with open('data/detection_results/ssd_VOCval_inferences.json', 'r') as f:
+        results = json.load(f)
+elif modeltype == 'frcnn':
+    with open('data/detection_results/frcnn_VOCval_inferences.json', 'r') as f:
+        results = json.load(f)
 
 # check max(full_score) == score
 # for i in range(len(results)):
 #     print(results[i]["score"],max(results[i]["full_scores"][1:]))
-    # assert results[i]["score"] == max(results[i]["full_scores"][1:]), "score != max(full_score)"
+# assert results[i]["score"] == max(results[i]["full_scores"][1:]), "score != max(full_score)"
 
 cal_voc_map(model, results, val_dataset)

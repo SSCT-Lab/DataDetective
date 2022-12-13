@@ -66,9 +66,20 @@ def inference_VOCclassification(dataloader, inference_type):
 
     return results
 
+
 params = parameters()
 if __name__ == '__main__':
     inference_type = 'mixed fault'
+    modeltype = 'frcnn'
+
+    detection_results = {
+        "ssd": "./data/detection_results/ssd_VOCval_inferences.json",
+        "frcnn": "./data/detection_results/frcnn_VOCval_inferences.json",
+    }
+    clssification_results = {
+        "ssd": './data/classification_results/classification_VOCssdinf' + str(params.m_t) + '_inferences.json',
+        "frcnn": './data/classification_results/classification_VOCfrcnninf' + str(params.m_t) + '_inferences.json',
+    }
 
     data_transform = transforms.Compose([
         transforms.ToTensor(),
@@ -86,7 +97,7 @@ if __name__ == '__main__':
 
     elif inference_type == 'inf':
         dataset = inference_VOCinf_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
-                                                         inferences_root="./data/detection_results/ssd_VOCval_inferences.json",
+                                                         inferences_root=detection_results[modeltype],
                                                          transforms=data_transform)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
 
@@ -128,8 +139,9 @@ if __name__ == '__main__':
     elif inference_type == 'inf':
         results = inference_VOCclassification(dataloader, inference_type)
         json_str = json.dumps(results, indent=4)
-        with open('./data/classification_results/classification_VOCinf'+str(params.m_t)+'_inferences.json', 'w') as json_file:
+        with open(clssification_results[modeltype], 'w') as json_file:
             json_file.write(json_str)
+
     elif inference_type == 'class fault':
         results = inference_VOCclassification(dataloader, inference_type)
         json_str = json.dumps(results, indent=4)
@@ -143,7 +155,8 @@ if __name__ == '__main__':
     elif inference_type == 'redundancy fault':
         results = inference_VOCclassification(dataloader, inference_type)
         json_str = json.dumps(results, indent=4)
-        with open('./data/classification_results/classification_VOCgtredundancyfault_inferences.json', 'w') as json_file:
+        with open('./data/classification_results/classification_VOCgtredundancyfault_inferences.json',
+                  'w') as json_file:
             json_file.write(json_str)
 
     elif inference_type == 'missing fault':
