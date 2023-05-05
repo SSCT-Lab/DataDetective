@@ -1,33 +1,56 @@
 import json
+import time
 
 import torch
 from tqdm import tqdm
 
-from modelsCodes.models.detection import ssd300_vgg16,fasterrcnn_resnet50_fpn_v2
-from UTILS.mydataset import inferenceVOCDetectionDataSet
+from modelsCodes.models.detection import ssd300_vgg16, fasterrcnn_resnet50_fpn_v2
+from UTILS.mydataset import DetectionDataSet
 from UTILS import presets
 from UTILS.engine import evaluate
 from UTILS.cal_voc_map import cal_voc_map
 
-modeltype = 'frcnn'
-model_path,model = None,None
-if modeltype == 'ssd':
-    model_path = 'models/ssd300_vgg16_voc_epoch_29.pth'
-elif modeltype == 'frcnn':
-    model_path = 'models/frcnn_resnet50_voc_epoch_25.pth'
+datatype = 'KITTI'
+modeltype = 'ssd300'
+runtype = 'train'
+model, root_path, layer_num = None, None, None
+
+model_path = './autodl-tmp/models/' + modeltype + 'dirty0.1_' + ('resnet50' if modeltype == 'frcnn' else 'vgg16') + '_' + datatype + '_epoch_25.pth'
+results_save_path = './autodl-tmp/' + modeltype + 'dirty0.1_' + datatype + runtype + '_inferences.json'
+
+print(model_path)
+print(results_save_path)
+if datatype == 'VOC':
+    root_path = './autodl-tmp/dataset/VOCdevkit/VOC2012'
+    layer_num = 21
+
+elif datatype == 'VisDrone':
+    root_path = './autodl-tmp/dataset'
+    layer_num = 12
+
+elif datatype == 'COCO':
+
+    root_path = './autodl-tmp/dataset/COCO'
+    layer_num = 91
+
+elif datatype == 'KITTI':
+    root_path = './autodl-tmp/dataset/KITTI'
+    layer_num = 8
+
 
 # load model
 modelState = torch.load(model_path, map_location="cpu")
-if modeltype == 'ssd':
-    model = ssd300_vgg16(num_classes=21)
+if modeltype == 'ssd300':
+    model = ssd300_vgg16(num_classes=layer_num)
 elif modeltype == 'frcnn':
-    model = fasterrcnn_resnet50_fpn_v2(num_classes=21)
+    model = fasterrcnn_resnet50_fpn_v2(num_classes=layer_num)
 
 model.load_state_dict(modelState["model"])
 
-val_dataset = inferenceVOCDetectionDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
-                                           transforms=presets.DetectionPresetEval(),
-                                           txt_name="val.txt")
+val_dataset = DetectionDataSet(root=root_path, runtype=runtype,
+                               transforms=presets.DetectionPresetEval(),
+                               datatype=datatype,
+                               traintype='clean')
 
 val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0,
                                              collate_fn=val_dataset.collate_fn)
@@ -39,6 +62,9 @@ model.to(device)
 
 results = []
 model.eval()
+
+start_time = time.time()
+
 with torch.no_grad():
     for image, targets in tqdm(val_dataloader):
 
@@ -65,20 +91,16 @@ with torch.no_grad():
 
     json_str = json.dumps(results, indent=4)
 
-    if modeltype == 'ssd':
-        with open('data/detection_results/ssd_VOCval_inferences.json', 'w') as json_file:
-            json_file.write(json_str)
-    elif modeltype == 'frcnn':
-        with open('data/detection_results/frcnn_VOCval_inferences.json', 'w') as json_file:
-            json_file.write(json_str)
+    end_time = time.time()
+    print("inference time: ", end_time - start_time)
+
+    with open(results_save_path, 'w') as json_file:
+        json_file.write(json_str)
 
 # load results
-if modeltype == 'ssd':
-    with open('data/detection_results/ssd_VOCval_inferences.json', 'r') as f:
-        results = json.load(f)
-elif modeltype == 'frcnn':
-    with open('data/detection_results/frcnn_VOCval_inferences.json', 'r') as f:
-        results = json.load(f)
+
+with open(results_save_path, 'r') as f:
+    results = json.load(f)
 
 # check max(full_score) == score
 # for i in range(len(results)):

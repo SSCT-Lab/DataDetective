@@ -1,4 +1,5 @@
 import json
+import time
 
 import torch
 import torchvision.models
@@ -11,24 +12,39 @@ from torchvision import transforms
 from UTILS.parameters import parameters
 
 
-def inference_VOCclassification(dataloader, inference_type):
-    model_path = './models/resnet50_voc_epoch_9.pth'
+def inference_VOCclassification(dataloader, inference_type, modelpath='', datatype='VOC'):
+    loss_func = torch.nn.CrossEntropyLoss()
+    model_path = modelpath
+
     # load model
     modelState = torch.load(model_path, map_location="cpu")
     model = torchvision.models.resnet50()
-    model.fc = torch.nn.Linear(2048, 21)
+    if datatype == 'VOC':
+        model.fc = torch.nn.Linear(2048, 21)
+    elif datatype == 'VisDrone':
+        model.fc = torch.nn.Linear(2048, 12)
+    elif datatype == 'COCO':
+        model.fc = torch.nn.Linear(2048, 91)
+    elif datatype == 'KITTI':
+        model.fc = torch.nn.Linear(2048, 8)
     model.load_state_dict(modelState["model"])
     model.eval()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
     results = []
+    start_time = time.time()
     with torch.no_grad():
         for i, data in enumerate(dataloader):
             images, targets = data
 
             outputs = model(images.to(device))
             # softmax outputs
+            labels = targets['category_id'].to(device)
             outputs = torch.nn.functional.softmax(outputs, dim=1)
+
+            # print(label,labels)
+            loss = loss_func(outputs, labels).item()
+            # print(loss)
             _, predicted = torch.max(outputs.data, 1)
 
             # progress bar
@@ -61,16 +77,45 @@ def inference_VOCclassification(dataloader, inference_type):
                         "detectiongt_category_id": int(targets["category_id"][j]),
                         "bbox": targets["boxes"][j].numpy().tolist(),
                         "fault_type": targets["fault_type"][j].item(),
+                        "loss": loss
                     }
                     results.append(content_dic)
-
+    end_time = time.time()
+    print("\nInference time: {:.4f}s".format(end_time - start_time))
     return results
 
 
 params = parameters()
 if __name__ == '__main__':
+    # params
     inference_type = 'mixed fault'
+    datatype = 'KITTI'
     modeltype = 'frcnn'
+    mask_type = 'crop'
+    runtype = 'train'
+    faultratio = params.fault_ratio
+    results_save_path = './data/classification_results/crop_dirty_LNL_classification_bs=32_' + datatype + runtype + 'mixedfault' + str(
+        faultratio) + '_inferences.json'
+    dirty_path = './data/fault_annotations/' + datatype + runtype + '_mixedfault0.1.json'
+    modelpath = './autodl-tmp/models/crop_dirty_LNL_resnet50_kitti_epoch_13_bs=32.pth'
+
+    #############################
+    if datatype == 'VOC':
+        root_path = './autodl-tmp/dataset/VOCdevkit/VOC2012'
+    elif datatype == 'VisDrone':
+        root_path = './autodl-tmp/dataset/VisDrone2019-DET-' + runtype
+    elif datatype == 'COCO':
+        root_path = './autodl-tmp/dataset/COCO'
+    elif datatype == 'KITTI':
+        root_path = './autodl-tmp/dataset/KITTI'
+    print(root_path)
+    # if mask_type == 'mask others':
+    #     results_save_path = './data/classification_results/mask_others_classification_VOCgtmixedfault'+str(faultratio)+'_inferences.json'
+    # elif mask_type == 'mask all':
+    #     results_save_path = './data/classification_results/mask_all_classification_VOCgtmixedfault'+str(faultratio)+'_inferences.json'
+    # elif mask_type == 'crop':
+    #     results_save_path = './data/classification_results/crop_classification_VOCgtmixedfault'+str(faultratio)+'_inferences.json'
+    #####################
 
     detection_results = {
         "ssd": "./data/detection_results/ssd_VOCval_inferences.json",
@@ -125,9 +170,12 @@ if __name__ == '__main__':
                                                              transforms=data_transform)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
     elif inference_type == 'mixed fault':
-        dataset = inference_VOCgtfault_classificationDataSet(voc_root="./dataset/VOCdevkit/VOC2012",
+        dataset = inference_VOCgtfault_classificationDataSet(root=root_path,
                                                              fault_type="mixed fault",
-                                                             transforms=data_transform)
+                                                             transforms=data_transform,
+                                                             mask_type=mask_type,
+                                                             datatype=datatype,
+                                                             dirty_path=dirty_path)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
 
     if inference_type == 'gt':
@@ -165,9 +213,11 @@ if __name__ == '__main__':
         with open('./data/classification_results/classification_VOCgtmissingfault_inferences.json', 'w') as json_file:
             json_file.write(json_str)
     elif inference_type == 'mixed fault':
-        results = inference_VOCclassification(dataloader, inference_type)
+        results = inference_VOCclassification(dataloader, inference_type, modelpath=modelpath, datatype=datatype)
         json_str = json.dumps(results, indent=4)
-        with open('./data/classification_results/classification_VOCgtmixedfault_inferences.json', 'w') as json_file:
+
+        with open(results_save_path,
+                  'w') as json_file:
             json_file.write(json_str)
 
     else:
