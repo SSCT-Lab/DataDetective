@@ -202,7 +202,7 @@ def inf_model(root_path='./autodl-tmp/dataset/COCO', mask_type='mask others',
     modelState = torch.load(model_path, map_location="cpu")
     model = torchvision.models.resnet50()
 
-    model.fc = torch.nn.Linear(2048, 9)
+    model.fc = torch.nn.Linear(2048, class_num)
 
     model.load_state_dict(modelState["model"])
     model.eval()
@@ -283,7 +283,7 @@ def detective(crop_path='./casestudydata/crop_test_inf.json',
             falut_imagename2boxes[imagename] = []
         falut_imagename2boxes[imagename].append([results[i]['bbox'], results[i]['detectiongt_category_id']])
 
-    for i,imagename in enumerate(falut_imagename2boxes):
+    for i, imagename in enumerate(falut_imagename2boxes):
         img_path = os.path.join('./dataset/COCO/val2017', imagename)
         img = Image.open(img_path).convert("RGB")
         ft_img = falut_imagename2boxes[imagename]
@@ -320,11 +320,43 @@ def detective(crop_path='./casestudydata/crop_test_inf.json',
         plt.axis('off')
         plt.imshow(img)
         if have_missing:
-            plt.savefig('./casestudydata/images2/missing_{}.png'.format(i), bbox_inches='tight', pad_inches=0,dpi=400)
+            plt.savefig('./casestudydata/images2/missing_{}.png'.format(i), bbox_inches='tight', pad_inches=0, dpi=400)
         else:
-            plt.savefig('./casestudydata/images2/{}.png'.format(i), bbox_inches='tight', pad_inches=0,dpi=400)
+            plt.savefig('./casestudydata/images2/{}.png'.format(i), bbox_inches='tight', pad_inches=0, dpi=400)
 
         plt.close()
 
 
-detective()
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--dataset', default='./dataset/COCO', help='input dataset')
+parser.add_argument('--trainlabel', default='./dataset/COCO/casestudy_train.json',
+                    help='input trainlabel root path')
+parser.add_argument('--testlabel', default='./dataset/COCO/casestudy_test.json', help='input testlabel path')
+parser.add_argument('--classnum', default=9, help='input class num')
+args = parser.parse_args()
+img_root = args.dataset
+train_label_path = args.trainlabel
+test_label_path = args.testlabel
+class_num = int(args.classnum)
+
+train_model(mask_type='crop', class_num=class_num, img_root=img_root,
+            trainlabel_root=train_label_path,
+            testlabel_root=test_label_path,
+            model_save_path="./models/crop_model_epoch_{}.pth")
+train_model(mask_type='other objects', class_num=class_num, img_root=img_root,
+            trainlabel_root=train_label_path,
+            testlabel_root=test_label_path,
+            model_save_path="./models/mask_others_model_epoch_{}.pth")
+inf_model(root_path=img_root, mask_type='crop',
+              dirty_path=test_label_path,
+              modelpath='./models/crop_model_epoch_13.pth',
+              results_save_path='./crop_test_inf.json')
+inf_model(root_path=img_root, mask_type='mask others',
+              dirty_path=test_label_path,
+              modelpath='./models/mask_others_model_epoch_13.pth',
+              results_save_path='./mask_others_test_inf.json')
+detective(crop_path='./crop_test_inf.json',
+              mask_others_path='./mask_others_test_inf.json',
+              dirty_path='./dataset/COCO/casestudy_test.json')
