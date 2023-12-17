@@ -1,36 +1,19 @@
 # Datactive
 
-This repository is an implementation of the paper: Datactive: Dataset Debugging for Object Detection Systems.
+**This repository is an implementation of the paper: Datactive: Dataset Debugging for Object Detection Systems.**
 
-Object detection models serve as a crucial componet in many intelligent software systems, and the accuracy of
-such models depends on the quality of the training dataset.
-However, it was observed that training data usually contains
-various errors due to the error-prone annotation procedure,
-and such errors can significantly influence the performance of
-object detection models, and thus propagate effect to the entire
-system. Each object detection input may contain multiple objects
-of different categories that need to be detected, and there may
-also be spatial relationships and occlusions between them. Thus
-the core challenge in annotating object detection data lies in
-identifying all objects that require annotation and correctly
-bounding and classifying them.
+Object detection models are seamlessly integrated into numerous intelligent software systems, playing a crucial role in various tasks. 
+These models are typically constructed upon human-annotated datasets, whose quality may significantly influence the model's performance and reliability. 
+Erroneous and inadequate annotated datasets can induce classification/localization inaccuracies during deployment, precipitating security breaches or traffic accidents that inflict property damage or even loss of life.
+Therefore, ensuring and improving data quality is a crucial issue for the reliability of the object detection system.
 
-In this paper, we propose a universal method that does not
-rely on object detection models’ predictions, namely Datactive.
-Based on the fundamental idea of data decoupling and reorgani-
-zation, Datactive constructs debugging models by separating
-existing foreground annotations and comprehensive annotations
-containing background information. A robust training strategy
-is adopted so that Datactive can be applied to both previously
-seen and unseen datasets. The debugging priority scores are
-assigned to both existing bounding boxes and background areas
-based on debug model results. This helps testers quickly identify
-which annotations need to be re-examined in the given input or
-dataset. To verify the effectiveness of our approach, we conduct
-experiments on three benchmark datasets of diverse application
-scenarios. Object detection prediction-based methods are applied
-as baselines to compare both the effectiveness and diversity,
-demonstrating the practical value of our approach.
+In this paper, we propose *Datactive*, a data fault localization technique for object detection systems.
+ *Datactive* is designed to locate various types of data faults including mis-localization and missing objects, without utilizing the prediction of object detection models trained on dirty datasets.
+To achieve this, we first construct foreground-only and background-included datasets via data disassembling strategies, and then employ a robust learning method to train classifiers using these disassembled datasets. Based on the predictions made by these classifiers,  *Datactive* produces a unified suspiciousness score for both foreground annotations and image backgrounds.
+It allows testers to easily identify and correct faulty or missing annotations with minimal effort.
+To validate the effectiveness of our technique, we conducted experiments on three application datasets using six baselines, and demonstrated the superiority of  *Datactive* from various aspects.
+
+We also explored *Datactive*'s ability to find natural data faults and its application in both training and evaluation scenarios.
 ![overview](./pictures/overview.Png) 
 
 ## Installation
@@ -77,6 +60,41 @@ Parameter explanation:
 `--classnum` : Number of categories in the dataset.
 
 ## Results
+
+*Datactive* improves the performance of the model：
+
+| map@0.5  |           | Test Set |         |         |           |
+|----------|-----------|----------|---------|---------|-----------|
+|          |           | original | dirty   | ours    | lossbased |
+| VOC      | original  | 0.8440   | 0.3980  | 0.7362  | 0.6427    |
+|          | dirty     | 0.7796   | 0.3673  | 0.6794  | 0.5858    |
+|          | ours      | 0.8299   | 0.3933  | 0.7271  | 0.6314    |
+|          | lossbased | 0.8214   | 0.3886  | 0.7163  | 0.6241    |
+|          | focalloss | 0.8195   | 0.3883  | 0.7148  | 0.6251    |
+|          | entropy   | 0.8205   | 0.3893  | 0.7192  | 0.6251    |
+|          | margin    | 0.8225   | 0.3912  | 0.7208  | 0.6241    |
+|          | gini      |          |         |         |           |
+|          | cleanlab  |          |         |         |           |
+| VisDrone | original  | 0.2993   | 0.1342  | 0.2299  | 0.1729    |
+|          | dirty     | 0.2607   | 0.1213  | 0.2025  | 0.1480    |
+|          | ours      | 0.2782   | 0.1267  | 0.2157  | 0.1613    |
+|          | lossbased | 0.2643   | 0.1222  | 0.2045  | 0.1551    |
+|          | focalloss | 0.2642   | 0.1206  | 0.2038  | 0.1540    |
+|          | entropy   | 0.2773   | 0.1268  | 0.2143  | 0.1601    |
+|          | margin    | 0.2749   | 0.1256  | 0.2123  | 0.1591    |
+|          | gini      |          |         |         |           |
+|          | cleanlab  |          |         |         |           |
+| KITTI    | original  | 0.8827   | 0.3114  | 0.7936  | 0.5657    |
+|          | dirty     | 0.7986   | 0.2901  | 0.7174  | 0.5081    |
+|          | ours      | 0.8701   | 0.3064  | 0.7819  | 0.5513    |
+|          | lossbased | 0.8357   | 0.3007  | 0.7514  | 0.5382    |
+|          | focalloss | 0.8280   | 0.2988  | 0.7445  | 0.5357    |
+|          | entropy   | 0.8399   | 0.3056  | 0.7553  | 0.5442    |
+|          | margin    |          |         |         |           |
+|          | gini      |          |         |         |           |
+|          | cleanlab  |          |         |         |           |
+
+
 Some `demo.py` results on COCO are shown below :
 <div><table frame=void>	<!--用了<div>进行封装-->
 	<tr>
